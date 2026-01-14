@@ -1,3 +1,30 @@
+# G+Smo developer days 2026, Pilsen, Czech Republic
+
+
+## Work Group 3: Alberto Biliotti, Dimitrios Tolis, Felix Scholz, Ye Ji
+================================================
+
+
+# `gsOpenCascade`: OpenCascade support for G+Smo
+
+|CMake flags|```-DGISMO_OPTIONAL="<other submodules>;gsOpenCascade"```|
+|--:|---|
+|License|![GitHub License](https://img.shields.io/github/license/gismo/gismo?color=008A00)|
+|OS support|Linux, Windows, macOS|
+<!-- |Developers/maintainers| [![Static Badge](https://img.shields.io/badge/@hverhelst-008A00)](https://github.com/hverhelst) [![Static Badge](https://img.shields.io/badge/@weinmueller-008A00)](https://github.com/weinmueller) [![Static Badge](https://img.shields.io/badge/@AndreaFarahat-008A00)](https://github.com/AndreaFarahat)| -->
+
+## Installation
+```
+cd path/to/build/dir
+cmake . -DGISMO_OPTIONAL="<other submodules>;gsOpenCascade"
+make -j
+```
+
+---
+
+
+<!-- ===============================================
+
 # Open CASCADE Technology extension
 
 G+Smo extension for the [Open CASCADE Technology](https://dev.opencascade.org) (OCCT) software development kit.
@@ -50,4 +77,4 @@ _Debian/Ubuntu_
 
 __macOS__
 
-__Windows__
+__Windows__ -->
