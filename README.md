@@ -16,7 +16,7 @@
 ## Installation
 ```
 cd path/to/build/dir
-cmake . -DGISMO_OPTIONAL="<other submodules>;gsOpenCascade"
+cmake . -DGISMO_OPTIONAL="<other submodules>;gsOpenCascade -DOPENCASCADE_PATH=/path/to/opencascade/installation"
 make -j
 ```
 
