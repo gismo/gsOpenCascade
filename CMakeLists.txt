@@ -1,32 +1,117 @@
-cmake_minimum_required(VERSION 3.22)
-project(occt_qt_viewer_min LANGUAGES CXX OBJCXX)
+######################################################################
+## CMakeLists.txt --- gsOpenCascade
+## This file is part of the G+Smo library.
+## 
+## Author: Angelos Mantzaflaris 
+######################################################################
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+# Open CASCADE Technology extension
+project(gsOpenCascade)
 
-# find Qt6 Widgets
-# find_package(Qt6 REQUIRED COMPONENTS Widgets)
-find_package(Qt6 COMPONENTS Widgets OpenGLWidgets REQUIRED)
+if(CMAKE_CXX_STANDARD EQUAL "98")
+  message(FATAL_ERROR "CMAKE_CXX_STANDARD must be 11 or better for OpenCascade extensions to compile.")
+endif()
 
-# OpenCascade (Homebrew provides Config package in .../lib/cmake/opencascade)
-find_package(OpenCASCADE REQUIRED)
+# Apply same configuration as G+Smo
+include(gsConfig)
 
-# add_executable(occt_qt_viewer_min main.mm)
-# add_executable(occt_qt_viewer_min occt_qt_viewer_min.mm)
-add_executable(occt_qt_viewer_min occt_qt_viewer_min.cpp)
-# add_executable(occt_qt_viewer_min winocct_qt_viewer_min.cpp)
+## OpenCascade library
+## (needs FindOpenCascade.cmake)
+#find_package(OpenCascade 7.3.0 QUIET)
+#find_package(OpenCascade)
+find_package( OpenCASCADE REQUIRED COMPONENTS TKBO TKBool TKBRep TKernel TKFeat TKFillet TKG2d TKG3d TKGeomAlgo TKGeomBase TKHLR TKMath TKMesh TKOffset TKPrim TKShHealing TKTopAlgo TKXSBase TKV3d TKService TKDEIGES TKDESTEP)
+#find_package( OpenCASCADE REQUIRED)
 
-# OCCT headers
-target_include_directories(occt_qt_viewer_min PRIVATE ${OpenCASCADE_INCLUDE_DIR})
+#set(USE_OPENCASCADE ON CACHE BOOL "Use OpenCascade library")
+message(" OpenCascade support is enabled: ${OpenCascade_FOUND}")
 
-# Link Qt + OCCT
-target_link_libraries(occt_qt_viewer_min PRIVATE
-  Qt6::Widgets
-  Qt6::OpenGLWidgets
-  ${OpenCASCADE_LIBRARIES}
-)
+if (NOT OpenCascade_FOUND)
+  # Set OpenCascade version
+  set(OCC_VER "7.3.0")
 
-# macOS app bundle (optional, but nice)
-set_target_properties(occt_qt_viewer_min PROPERTIES
-  MACOSX_BUNDLE TRUE
-)
+  # Download OpenCascade sources at configure time
+  include(gsFetch)
+  gismo_fetch_directory(OCC
+      URL_MD5 "35f3da72c1fb53e32e5cfd826113b32a"
+      URL https://files.inria.fr/gismo/gz/opencascade-${OCC_VER}.tgz
+      DESTINATION    external
+      )
+    
+    # Set OpenCascade include directory
+    set(OCC_INCLUDE_DIR ${CMAKE_CURRENT_BINARY_DIR}/OCC-prefix/include/opencascade CACHE INTERNAL "")
+
+    # Set OpenCascade libraries
+    set(OCC_LIBNAMES TKBO TKBool TKBRep TKernel TKFeat TKFillet TKG2d TKG3d TKGeomAlgo TKGeomBase TKHLR TKIGES TKMath TKMesh TKOffset TKPrim TKShHealing TKSTEP TKSTEPAttr TKSTEPBase TKSTEP209 TKSTL TKTopAlgo TKXSBase TKVRML TKV3d TKService )
+    foreach(OCC_LIB ${OCC_LIBNAMES})
+      list(APPEND OCC_LIBRARIES ${CMAKE_CURRENT_BINARY_DIR}/OCC-prefix/lib/${CMAKE_SHARED_LIBRARY_PREFIX}${OCC_LIB}${CMAKE_SHARED_LIBRARY_SUFFIX})
+    endforeach()
+
+  # Build OpenCascade library at compile time
+  include(ExternalProject)
+  ExternalProject_Add(OCC
+      BINARY_DIR        ${CMAKE_CURRENT_BINARY_DIR}/OCC
+      SOURCE_DIR        ${gismo_externals}/OCC
+      CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
+                 -DCMAKE_INSTALL_MESSAGE=NEVER
+                 -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+                 -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
+		 -DBUILD_MODULE_Draw:BOOL=FALSE
+      BUILD_BYPRODUCTS "${OCC_LIBRARIES}"
+      DOWNLOAD_COMMAND  ""
+      UPDATE_COMMAND    ""
+      )
+
+  # Install OpenCascade header files
+  install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/OCC-prefix/include/opencascade
+      DESTINATION include/gismo/opencascade/
+      FILES_MATCHING PATTERN "*.h")
+endif()
+
+##
+## gsOpenCascade extension
+##
+
+message("configuring gsOpenCascade extension... ${OpenCASCADE_INCLUDE_DIR}")
+set(OCC_INCLUDE_DIR ${OpenCASCADE_INCLUDE_DIR})
+set(OCC_LIBRARIES ${OpenCASCADE_LIBRARIES})
+include_directories(SYSTEM ${OCC_INCLUDE_DIR})
+set(OCC_SOURCES gsReadOcct.cpp gsWriteOcct.cpp)
+
+# Compile the extension as part of the G+Smo library
+add_library(${PROJECT_NAME} OBJECT ${OCC_SOURCES})
+
+if (NOT OpenCascade_FOUND)
+  add_dependencies(${PROJECT_NAME} OCC)
+endif(NOT OpenCascade_FOUND)
+
+# Set standard properties for all G+Smo extensions
+set_target_properties(${PROJECT_NAME} PROPERTIES
+    COMPILE_DEFINITIONS gismo_EXPORTS 
+    POSITION_INDEPENDENT_CODE ON
+    LINKER_LANGUAGE CXX
+    CXX_VISIBILITY_PRESET hidden
+    VISIBILITY_INLINES_HIDDEN ON
+    FOLDER "G+Smo extensions" )
+
+#  add_library(TKBO SHARED IMPORTED)
+#  add_dependencies(TKBO OCC)
+#  set_target_properties(TKBO
+#    PROPERTIES IMPORTED_LOCATION ${CMAKE_CURRENT_BINARY_DIR}/OCC-prefix/lib/libTKBO.so)
+
+# Add gsOpenCascade extension to the list of G+Smo extensions
+set(gismo_EXTENSIONS ${gismo_EXTENSIONS} $<TARGET_OBJECTS:${PROJECT_NAME}>
+    CACHE INTERNAL "Gismo extensions to be included")
+    
+# Add OpenCascade include directory to G+Smo standard include directories
+set (GISMO_INCLUDE_DIRS ${GISMO_INCLUDE_DIRS} ${OCC_INCLUDE_DIR}
+    CACHE INTERNAL "Gismo include directories")
+
+# Link G+Smo to OpenCascade library (either dynamically or statically)
+message("OCC_LIBRARIES: ${OCC_LIBRARIES}")
+set(gismo_LINKER ${gismo_LINKER} ${OCC_LIBRARIES}
+    CACHE INTERNAL "Gismo extra linker objects")
+
+# Install gsOpenCascade extension header files
+install(DIRECTORY ${PROJECT_SOURCE_DIR}
+        DESTINATION include/gismo/gsOpenCascade/
+        FILES_MATCHING PATTERN "*.h")
